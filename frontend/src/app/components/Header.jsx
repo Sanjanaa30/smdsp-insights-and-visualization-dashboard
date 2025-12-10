@@ -88,7 +88,7 @@ export default function Header() {
               </svg>
             </button> */}
             {/* <!-- Profile dropdown --> */}
-            <el-dropdown className="relative ml-3">
+            {/* <el-dropdown className="relative ml-3">
               <button className="relative flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
                 <span className="absolute -inset-1.5"></span>
                 <span className="sr-only">Open user menu</span>
@@ -123,7 +123,7 @@ export default function Header() {
                   Sign out
                 </a>
               </el-menu>
-            </el-dropdown>
+            </el-dropdown> */}
           </div>
         </div>
       </div>
@@ -131,31 +131,25 @@ export default function Header() {
       <el-disclosure id="mobile-menu" hidden className="block sm:hidden">
         <div className="space-y-1 px-2 pt-2 pb-3">
           {/* <!-- Current: "bg-white-950/50 text-white", Default: "text-gray-300 hover:bg-gray hover:text-white" --> */}
-          <a
-            href="#"
+          <Link
+            href="chan"
             aria-current="page"
             className="block rounded-md bg-white-950/50 px-3 py-2 text-base font-medium text-white"
           >
-            Dashboard
-          </a>
-          <a
+            4Chan
+          </Link>
+          <Link
+            href="reddit"
+            className="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray hover:text-white"
+          >
+            Reddit
+          </Link>
+          <Link
             href="#"
             className="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray hover:text-white"
           >
-            Team
-          </a>
-          <a
-            href="#"
-            className="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray hover:text-white"
-          >
-            Projects
-          </a>
-          <a
-            href="#"
-            className="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray hover:text-white"
-          >
-            Calendar
-          </a>
+            Comparison, Analysis
+          </Link>
         </div>
       </el-disclosure>
     </nav>
