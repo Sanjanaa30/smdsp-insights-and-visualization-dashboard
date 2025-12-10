@@ -22,7 +22,7 @@ export default function LineChartOne({
 
   // Create series data for each subreddit
   const series = subredditNames.map((subredditName) => ({
-    name: subredditName,
+    name: subredditName.charAt(0).toUpperCase() + subredditName.substring(1,),
     data: data.data.map((item) => item.subreddit_counts[subredditName] || 0),
   }));
 

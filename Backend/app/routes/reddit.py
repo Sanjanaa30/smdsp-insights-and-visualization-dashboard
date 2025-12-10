@@ -1,23 +1,26 @@
-from fastapi import APIRouter, Query, HTTPException
-from typing import Optional
-from app.utils.plsql import PLSQL
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+
 from app.constants.reddit_queries import (
-    SELECT_REDDIT_ENGAGEMENT_BY_TYPE,
     SELECT_ALL_SUBREDDITS,
-    SELECT_REDDIT_SUMMARY_STATS,
     SELECT_DAILY_POST_COUNTS_BY_SUBREDDIT,
+    SELECT_NUMBER_OF_SUBSCRIBERS,
+    SELECT_REDDIT_ENGAGEMENT_BY_TYPE,
+    SELECT_REDDIT_SUMMARY_STATS,
 )
 from app.models.reddit import (
-    EngagementByTypeResponse,
-    EngagementByTypeData,
-    SummaryStats,
-    DailyPostCountsResponse,
     DailyPostCountByDate,
+    DailyPostCountsResponse,
+    EngagementByTypeData,
+    EngagementByTypeResponse,
+    SubScribers,
+    SummaryStats,
 )
+from app.utils.plsql import PLSQL
 from dotenv import load_dotenv
-import os
-from pathlib import Path
-from datetime import datetime
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/reddit", tags=["Reddit"])
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -176,17 +179,19 @@ async def get_summary_stats():
 
 @router.get("/posts/daily-counts", response_model=DailyPostCountsResponse)
 async def get_daily_post_counts(
-    start_date: Optional[str] = Query('2025-11-01', description="Start date in YYYY-MM-DD format"),
+    start_date: Optional[str] = Query(
+        "2025-11-01", description="Start date in YYYY-MM-DD format"
+    ),
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
 ):
     """
     Get daily post counts by subreddit with optional date filtering.
     Returns counts of posts grouped by subreddit and date.
-    
+
     Args:
         start_date: Optional start date filter (YYYY-MM-DD)
         end_date: Optional end date filter (YYYY-MM-DD)
-    
+
     Returns:
         List of daily post counts with subreddit_name, date, and counts
     """
@@ -194,7 +199,7 @@ async def get_daily_post_counts(
         # Build dynamic date filter
         date_filter = ""
         params = []
-        
+
         if start_date:
             # Validate date format
             try:
@@ -203,10 +208,9 @@ async def get_daily_post_counts(
                 params.append(start_date)
             except ValueError:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="Invalid start_date format. Use YYYY-MM-DD"
+                    status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD"
                 )
-        
+
         if end_date:
             # Validate date format
             try:
@@ -215,13 +219,12 @@ async def get_daily_post_counts(
                 params.append(end_date)
             except ValueError:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="Invalid end_date format. Use YYYY-MM-DD"
+                    status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD"
                 )
-        
+
         # Build final query
         query = SELECT_DAILY_POST_COUNTS_BY_SUBREDDIT.format(date_filter=date_filter)
-        
+
         plsql = PLSQL(REDDIT_DATABASE_URL)
         result = plsql.get_data_from(query, tuple(params))
         plsql.close_connection()
@@ -232,12 +235,12 @@ async def get_daily_post_counts(
             date = str(row[0])
             subreddit_name = row[1]
             count = row[2]
-            
+
             if date not in date_groups:
                 date_groups[date] = {}
-            
+
             date_groups[date][subreddit_name] = count
-        
+
         # Convert to response format
         data = [
             DailyPostCountByDate(date=date, subreddit_counts=counts)
@@ -245,8 +248,35 @@ async def get_daily_post_counts(
         ]
 
         return DailyPostCountsResponse(data=data)
-        
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/subreddit/top-subscribers", response_model=List[SubScribers])
+async def get_top_subscribers():
+    try:
+        plsql = PLSQL(REDDIT_DATABASE_URL)
+        result = plsql.get_data_from(SELECT_NUMBER_OF_SUBSCRIBERS, None)
+        plsql.close_connection()
+        if len(result) > 0:
+            final_result = []
+            for subreddit_name, subscribers in result:
+                if subreddit_name.lower().startswith("r/"):
+                    subreddit_name = subreddit_name[2:]
+                elif subreddit_name.lower().startswith("/r/"):
+                    subreddit_name = subreddit_name[3:]
+                subreddit_name = subreddit_name[0].upper() + subreddit_name[1:]
+                final_result.append(
+                    SubScribers(subreddit_name=subreddit_name, subscribers=subscribers)
+                )
+            return final_result
+        else:
+            return SubScribers(subreddit_name=0, subscribers=0)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

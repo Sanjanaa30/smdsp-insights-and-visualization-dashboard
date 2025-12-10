@@ -59,3 +59,19 @@ WHERE subreddit IN ('ArtificialInteligence', 'geopolitics', 'technology')
 GROUP BY DATE(created_timestamp), subreddit
 ORDER BY date, subreddit
 """
+
+# Get Number SubScribers
+SELECT_NUMBER_OF_SUBSCRIBERS = """
+SELECT 
+    title as subreddit_name,
+    subscribers
+FROM public.subreddit
+ORDER BY subscribers Desc
+LIMIT 10
+"""
+
+
+# Get Average Toxicity by Subreddit
+SELECT_SUBREDDIT_TOXICITY = """
+SELECT subreddit, toxicity FROM toxicity WHERE toxicity IS NOT NULL
+"""

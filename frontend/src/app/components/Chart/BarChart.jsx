@@ -1,7 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { FiChevronDown } from "react-icons/fi";
-import { useState } from "react";
+import Filter from "../Filter/Filter";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
@@ -11,9 +10,14 @@ export default function BarChart({
   title,
   filterLabel = [], // array of categories
   data,
-  datesEnabled = false,
-  onApplyFilters = () => {},
-  defaultFilter = null, // NEW: controlled filter value from parent
+  showDateFilter = false,
+  showDropdown = true,
+  onFilterChange = () => {},
+  defaultFilter = null,
+  startDate = "",
+  endDate = "",
+  minDate = "",
+  maxDate = "",
 }) {
   // Chart Data
   const categories = data?.map((item) => item.day) || [];
@@ -67,15 +71,15 @@ export default function BarChart({
     },
   ];
 
-  // Filter States - use defaultFilter from parent if provided
-  const [filterOpen, setFilterOpen] = useState(false);
-  const selectedFilter = defaultFilter || filterLabel?.[0] || "All";
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  // Handle dropdown change
+  const handleOptionChange = (option) => {
+    onFilterChange({ category: option });
+  };
 
-  function toggleFilter() {
-    setFilterOpen(!filterOpen);
-  }
+  // Handle date apply
+  const handleDateChange = ({ startDate: newStart, endDate: newEnd }) => {
+    onFilterChange({ startDate: newStart, endDate: newEnd });
+  };
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-white px-5 pt-5 relative">
@@ -86,89 +90,19 @@ export default function BarChart({
           {title || "Daily Posts"}
         </h3>
 
-        {/* RIGHT: Filters + Date Inputs */}
-        <div className="flex items-center gap-3">
-          {/* DATE INPUTS (SIDE BY SIDE, NOT IN DROPDOWN) */}
-          {datesEnabled && (
-            <div className="flex items-center gap-2">
-              {/* Start Date */}
-              <input
-                type="date"
-                value={startDate}
-                min="2025-11-01"
-                onChange={(e) => {
-                  const newDate = e.target.value;
-
-                  // Optional: guard in JS as well
-                  if (newDate < "2025-11-01") return;
-
-                  setStartDate(newDate);
-                  onApplyFilters({
-                    category: selectedFilter,
-                    startDate: newDate,
-                    endDate,
-                  });
-                }}
-                className="border px-2 py-1 rounded-md text-sm text-black"
-              />
-
-              {/* End Date */}
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  onApplyFilters({
-                    category: selectedFilter,
-                    startDate,
-                    endDate: e.target.value,
-                  });
-                }}
-                className="border px-2 py-1 rounded-md text-sm text-black"
-              />
-            </div>
-          )}
-
-          {/* FILTER DROPDOWN */}
-          <div className="relative">
-            <button
-              onClick={toggleFilter}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium 
-                       text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-            >
-              {selectedFilter}
-              <FiChevronDown className="text-gray-500" />
-            </button>
-
-            {/* DROPDOWN CONTENT */}
-            {filterOpen && (
-              <div
-                className="absolute right-0 mt-2 z-30 bg-white shadow-md border 
-                         rounded-xl p-3 w-40"
-              >
-                {Array.isArray(filterLabel) &&
-                  filterLabel.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => {
-                        onApplyFilters({
-                          category: option,
-                          startDate,
-                          endDate,
-                        });
-
-                        setFilterOpen(false);
-                      }}
-                      className="block text-left py-1 text-xs 
-                               rounded-md hover:bg-gray-100 text-gray-700"
-                    >
-                      {option}
-                    </button>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* RIGHT: Filter Component */}
+        <Filter
+          showDropdown={showDropdown}
+          dropdownOptions={filterLabel}
+          selectedOption={defaultFilter}
+          onOptionChange={handleOptionChange}
+          showDateFilter={showDateFilter}
+          startDate={startDate}
+          endDate={endDate}
+          minDate={minDate}
+          maxDate={maxDate}
+          onDateChange={handleDateChange}
+        />
       </div>
 
       {/* CHART */}

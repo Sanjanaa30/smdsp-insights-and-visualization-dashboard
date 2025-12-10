@@ -41,10 +41,14 @@ class Board(BaseModel):
 
 class EngagementByTypeData(BaseModel):
     post_type: str
-    total_threads: int
+    total_threads: float
     avg_replies: float
-    total_replies: int
+    total_replies: float
     avg_images: Optional[float] = None  # Only for 4chan
+    norm_total_threads: Optional[float] = None
+    norm_total_replies: Optional[float] = None
+    norm_avg_replies: Optional[float] = None
+    norm_avg_images: Optional[float] = None
 
 class EngagementByTypeResponse(BaseModel):
     platform: str  # "4chan" or "reddit"

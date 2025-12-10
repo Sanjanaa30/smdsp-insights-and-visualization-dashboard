@@ -1,41 +1,42 @@
 "use client";
 
-import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchSummaryStats,
-  fetchDailyPostsCount,
-  selectRedditDashboard,
-} from "../../slices/redditSlice";
 import StatsCards from "../components/StatsCards";
-import { MoonLoader, SyncLoader } from "react-spinners";
+import { MoonLoader, PropagateLoader } from "react-spinners";
 import LineChart from "../components/Chart/LineChart";
+import HorizontalBarChart from "../components/Chart/HorizontalBarChart";
 
-export default function page() {
-  const dispatch = useDispatch();
-  useEffect(() => {
-    dispatch(fetchSummaryStats());
-    dispatch(fetchDailyPostsCount());
-  }, [dispatch]);
+import {
+  useSummaryStats,
+  useDailyPostsCount,
+  useTopSubscribers,
+} from "../hooks/useRedditDashboard";
 
-  const { summaryStats, postsPerDay } = useSelector(selectRedditDashboard);
+export default function Page() {
 
-  const totalPosts = summaryStats?.data?.total_posts || 0;
-  const totalComments = summaryStats?.data?.total_comments || 0;
-  const totalToxicity = summaryStats?.data?.total_toxicity || 0;
-  const numberOfSubreddit = summaryStats?.data?.unique_subreddit || 0;
+  const { data: summaryRedditStats, isLoading: summaryLoading } = useSummaryStats();
+
+  const { data: postsPerDay, isLoading: postsLoading } = useDailyPostsCount();
+
+  const { data: topSubscribers, isLoading: topSubLoading } =
+    useTopSubscribers();
+
+  // Derived values
+  const totalPosts = summaryRedditStats?.total_posts || 0;
+  const totalComments = summaryRedditStats?.total_comments || 0;
+  const totalToxicity = summaryRedditStats?.total_toxicity || 0;
+  const numberOfSubreddit = summaryRedditStats?.unique_subreddit || 0;
 
   const statsConfig = [
     {
       label: "Total Posts Collected",
-      value: totalPosts.toLocaleString(),
+      value: totalPosts,
       helper: "Unique posts in dataset",
       color: "green",
       icon: "🧾",
     },
     {
       label: "Number of Comments",
-      value: totalComments.toLocaleString(),
+      value: totalComments,
       helper: "Unique comments in dataset",
       color: "purple",
       icon: "💬",
@@ -58,7 +59,8 @@ export default function page() {
 
   return (
     <div className="container mx-auto p-2">
-      {summaryStats.loading ? (
+      {/* Summary Cards */}
+      {summaryLoading ? (
         <div className="grid grid-cols-3 gap-4 mb-4">
           {Array.from({ length: statsConfig.length }).map((_, i) => (
             <div
@@ -73,16 +75,37 @@ export default function page() {
       ) : (
         <StatsCards items={statsConfig} />
       )}
-      <LineChart
-        title="Daily Posts By Subreddits"
-        data={postsPerDay?.data}
-        // onApplyFilters={}
-        // filterLabel={boardOptions.map((opt) => opt.label)}
-        // defaultFilter={
-        //   boardOptions.find((opt) => opt.value === selectedBoard)?.label ||
-        //   "All Boards"
-        // }
-      />
+
+      {/* Posts per Day Chart */}
+      {postsLoading ? (
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 flex items-center justify-center min-h-[400px]">
+          <PropagateLoader loading={true} color="#465fff" />
+        </div>
+      ) : (
+        <LineChart title="Daily Posts By Subreddits" data={postsPerDay} />
+      )}
+
+      {/* Top Subscribers Chart */}
+      <div className="grid grid-cols-4 sm:grid-cols-1 lg:grid-cols-4 gap-4 min-h-[250px] pt-5">
+        <div className="col-span-2">
+          {!topSubLoading && topSubscribers?.length > 0 ? (
+            <HorizontalBarChart
+              title="Top Subscribers by Subreddits"
+              categories={topSubscribers.map((d) => d.subreddit_name)}
+              series={[
+                {
+                  name: "Subscribers",
+                  data: topSubscribers.map((d) => d.subscribers),
+                },
+              ]}
+            />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 flex items-center justify-center min-h-[250px]">
+              <PropagateLoader loading={true} color="#465fff" />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

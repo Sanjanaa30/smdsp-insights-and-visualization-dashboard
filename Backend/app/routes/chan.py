@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from app.utils.plsql import PLSQL
 from app.constants.queries import (
-    SELECT_BOARD_COUNT,
+    SELECT_BOARD_TOXICITY,
     SELECT_DAILY_ACTIVITY,
     SELECT_HOURLY_ACTIVITY,
     SELECT_ALL_BOARDS,
@@ -253,8 +253,10 @@ async def get_hourly_activity(
 
 @router.get("/engagement/by-type", response_model=EngagementByTypeResponse)
 async def get_engagement_by_type(
-    board_name: str = Query(..., description="Board name (e.g., 'pol')"),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    board_name: str = Query("pol,g,sp,int,out", description="Comma-separated board names (e.g., 'pol,g,int')"),
+    start_date: str = Query(
+        "2025-11-01", description="Start date in YYYY-MM-DD format"
+    ),
     end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
 ):
     """
@@ -263,23 +265,56 @@ async def get_engagement_by_type(
     This directly answers RQ1 about how different post types affect engagement.
     """
     try:
+        # Parse comma-separated board names into a list
+        board_list = [b.strip() for b in board_name.split(",") if b.strip()]
+        
         plsql = PLSQL(CHAN_DATABASE_URL)
         result = plsql.get_data_from(
-            SELECT_CHAN_ENGAGEMENT_BY_TYPE, (board_name, start_date, end_date)
+            SELECT_CHAN_ENGAGEMENT_BY_TYPE, (board_list, start_date, end_date)
         )
         plsql.close_connection()
 
         data = []
-        for row in result:
+        print(f"Query returned {len(result)} rows")
+        for idx, row in enumerate(result):
+            if row is None:
+                print(f"Row {idx} is None, skipping")
+                continue
+
+            # Check row length
+            if len(row) < 5:
+                print(f"Row {idx} has only {len(row)} columns: {row}")
+                continue
+
+            print(f"Row {idx}: {row}")
             data.append(
                 EngagementByTypeData(
-                    post_type=row[0],
-                    total_threads=row[1],
-                    avg_replies=float(row[2]) if row[2] else 0.0,
-                    avg_images=float(row[3]) if row[3] else 0.0,
-                    total_replies=row[4],
+                    post_type=row[0] if row[0] else "unknown",
+                    total_threads=row[1] if row[1] is not None else 0,
+                    avg_replies=float(row[2]) if row[2] is not None else 0.0,
+                    avg_images=float(row[3]) if row[3] is not None else 0.0,
+                    total_replies=row[4] if row[4] is not None else 0,
                 )
             )
+        if data:  # avoid division by zero if empty
+            max_threads = max(d.total_threads for d in data)
+            max_replies = max(d.total_replies for d in data)
+            max_avg_replies = max(d.avg_replies for d in data)
+            max_avg_images = max(d.avg_images for d in data)
+
+            for d in data:
+                d.norm_total_threads = (
+                    d.total_threads / max_threads if max_threads else 0
+                )
+                d.norm_total_replies = (
+                    d.total_replies / max_replies if max_replies else 0
+                )
+                d.norm_avg_replies = (
+                    d.avg_replies / max_avg_replies if max_avg_replies else 0
+                )
+                d.norm_avg_images = (
+                    d.avg_images / max_avg_images if max_avg_images else 0
+                )
 
         return EngagementByTypeResponse(
             platform="4chan",
@@ -289,6 +324,7 @@ async def get_engagement_by_type(
             data=data,
         )
     except Exception as e:
+        print(f"Error in get_engagement_by_type: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -308,7 +344,10 @@ async def get_country_stats():
         for row in result:
             data.append(
                 CountryData(
-                    name="Unknown" if len(row[0])<1 else row[0], count=row[1], percent=float(row[2]), flag=row[3]
+                    name="Unknown" if len(row[0]) < 1 else row[0],
+                    count=row[1],
+                    percent=float(row[2]),
+                    flag=row[3],
                 )
             )
 

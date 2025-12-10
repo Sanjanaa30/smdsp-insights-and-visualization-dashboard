@@ -1,29 +1,31 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { MoonLoader, SyncLoader } from "react-spinners";
+
+import { useState } from "react";
 import {
-  fetchStatsDaily,
-  fetchSummaryStats,
-  fetchCountryStats,
-  selectPostsPerDay,
-  selectSummaryStats,
-  selectCountryStats,
-} from "../../slices/chanSlice";
+  useDailyStats,
+  useSummaryStats,
+  useCountryStats,
+  useEngagementByType,
+} from "../hooks/useChanDashboard";
+
+import { MoonLoader, SyncLoader } from "react-spinners";
+
 import BarChart from "../components/Chart/BarChart";
 import StatsCards from "../components/StatsCards";
 import CountriesCard from "../components/CountriesCard/CountriesCard";
+import GroupedBarChart from "../components/Chart/GroupedBarChart";
 
-export default function page() {
-  const dispatch = useDispatch();
-  const postsPerDay = useSelector(selectPostsPerDay);
-  const summaryStats = useSelector(selectSummaryStats);
-  const countryStats = useSelector(selectCountryStats);
-  // Filter states
-  const [selectedBoard, setSelectedBoard] = useState("");
-  const [startDate, setStartDate] = useState("2025-11-15");
-  const [endDate, setEndDate] = useState("");
-  // Board options
+export default function Page() {
+  // ---------------- FILTER STATE FOR DAILY STATS ----------------
+  const [dailyBoard, setDailyBoard] = useState("pol");
+  const [dailyStartDate, setDailyStartDate] = useState("2025-11-14");
+  const [dailyEndDate, setDailyEndDate] = useState("2025-12-05");
+
+  // ---------------- FILTER STATE FOR ENGAGEMENT ----------------
+  const [engagementBoard, setEngagementBoard] = useState("pol");
+  const [engagementStartDate, setEngagementStartDate] = useState("2025-11-14");
+  const [engagementEndDate, setEngagementEndDate] = useState("2025-12-05");
+
   const boardOptions = [
     { value: "", label: "All Boards" },
     { value: "pol", label: "Politically Incorrect" },
@@ -33,62 +35,65 @@ export default function page() {
     { value: "out", label: "Outdoor" },
   ];
 
-  useEffect(() => {
-    handleApplyFilters();
-  }, []);
-  const handleApplyFilters = () => {
-    const params = {};
-    if (selectedBoard) params.board_name = selectedBoard;
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-    dispatch(fetchStatsDaily(params));
-    dispatch(fetchSummaryStats());
-    dispatch(fetchCountryStats(params));
-  };
+  // ---------------- REACT QUERY CALLS ----------------
 
-  // Handler for BarChart filter changes
-  const handleChartFilters = ({
+  const { data: postsPerDay, isLoading: loadingDaily } = useDailyStats({
+    board_name: dailyBoard,
+    start_date: dailyStartDate,
+    end_date: dailyEndDate,
+  });
+
+  const { data: summaryChanStats, isLoading: loadingSummary } = useSummaryStats();
+
+  const { data: countryStats, isLoading: loadingCountry } = useCountryStats();
+
+  const { data: engagementStats, isLoading: loadingEngagement } =
+    useEngagementByType({
+      board_name: engagementBoard,
+      start_date: engagementStartDate,
+      end_date: engagementEndDate,
+    });
+
+  // ---------------- HANDLE FILTER CHANGES FOR DAILY STATS ----------------
+  const handleDailyFilters = ({
     category,
     startDate: newStartDate,
     endDate: newEndDate,
   }) => {
-    // Update local state
-    if (newStartDate !== undefined) setStartDate(newStartDate);
-    if (newEndDate !== undefined) setEndDate(newEndDate);
+    if (newStartDate !== undefined) setDailyStartDate(newStartDate);
+    if (newEndDate !== undefined) setDailyEndDate(newEndDate);
 
-    // Handle board selection from category
     if (category !== undefined) {
-      const selectedOption = boardOptions.find((opt) => opt.label === category);
-      if (selectedOption) {
-        setSelectedBoard(selectedOption.value);
-      }
+      const option = boardOptions.find((x) => x.label === category);
+      if (option) setDailyBoard(option.value);
     }
-
-    // Build params for API call
-    const params = {};
-    const boardValue =
-      category !== undefined
-        ? boardOptions.find((opt) => opt.label === category)?.value || ""
-        : selectedBoard;
-
-    if (boardValue) params.board_name = boardValue;
-    if (newStartDate) params.start_date = newStartDate;
-    if (newEndDate) params.end_date = newEndDate;
-
-    // Fetch updated data
-    dispatch(fetchStatsDaily(params));
   };
 
-  const data = postsPerDay?.data || [];
-  const totalPosts = summaryStats?.data?.total_posts || 0;
-  const totalToxicity = summaryStats?.data?.total_toxicity || 0;
-  const numberOfBoards = summaryStats?.data?.unique_boards || 0;
-  // ----- CONFIG FOR THE REUSABLE STATS CARDS -----
+  // ---------------- HANDLE FILTER CHANGES FOR ENGAGEMENT ----------------
+  const handleEngagementFilters = ({
+    category,
+    startDate: newStartDate,
+    endDate: newEndDate,
+  }) => {
+    if (newStartDate !== undefined) setEngagementStartDate(newStartDate);
+    if (newEndDate !== undefined) setEngagementEndDate(newEndDate);
+
+    if (category !== undefined) {
+      const option = boardOptions.find((x) => x.label === category);
+      if (option) setEngagementBoard(option.value);
+    }
+  };
+
+  // ---------------- SUMMARY CARDS ----------------
+
+  const totalPosts = summaryChanStats?.total_posts || 0;
+  const totalToxicity = summaryChanStats?.total_toxicity || 0;
+  const numberOfBoards = summaryChanStats?.unique_boards || 0;
+
   const statsConfig = [
     {
       label: "Total Posts Collected",
-      value: totalPosts.toLocaleString(),
-      // helper: "Within selected filters",
+      value: totalPosts,
       color: "green",
       icon: "🧾",
     },
@@ -107,33 +112,33 @@ export default function page() {
       icon: "📊",
     },
   ];
-  console.log(postsPerDay?.data);
 
-  // Countries Card Data - Use real data from API
-  const [range, setRange] = useState("Last 7 Days");
+  // ---------------- COUNTRY DATA ----------------
 
-  const countryList = countryStats?.data?.data || [];
+  const countryList = countryStats?.data || [];
 
-  const countryStatsForCard = countryList.map((country) => ({
-    name: country.name,
-    percent: country.percent,
-    flag: country.flag,
+  const countryStatsForCard = countryList.map((c) => ({
+    name: c.name,
+    percent: c.percent,
+    flag: c.flag,
   }));
 
-  const mapData = countryList.reduce((acc, country) => {
-    acc[country.name] = country.percent;
-    return acc;
-  }, {});
+  const mapData = Object.fromEntries(
+    countryList.map((c) => [c.name, c.percent])
+  );
+
+  // ---------------- RENDER UI ----------------
 
   return (
     <div className="container mx-auto p-2">
-      {summaryStats.loading ? (
+      {/* ---------- SUMMARY CARDS ---------- */}
+      {loadingSummary ? (
         <div className="grid grid-cols-3 gap-4 mb-4">
           {Array.from({ length: statsConfig.length }).map((_, i) => (
             <div
               key={i}
               className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 py-8 
-                      flex items-center justify-center"
+                flex items-center justify-center"
             >
               <MoonLoader color="#465fff" size={12} />
             </div>
@@ -142,46 +147,74 @@ export default function page() {
       ) : (
         <StatsCards items={statsConfig} />
       )}
-      {/* Chart Display */}
-      <div className="grid grid-cols-4 sm:grid-cols-1 lg:grid-cols-4 gap-4 min-h-[250px]">
-        {/* Daily Posts Chart Section */}
+
+      {/* ---------- MAIN GRID ---------- */}
+      <div className="grid grid-cols-4 md:grid-cols-4 gap-4">
+        {/* ---------- DAILY POSTS ---------- */}
         <div className="col-span-3">
-          {postsPerDay.loading ? (
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 sm:px-6 sm:pt-6 flex items-center justify-center">
-              <SyncLoader loading={true} color="#465fff" size={26} />
+          <div className="col-span-2 my-1">
+            {loadingDaily ? (
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 flex items-center justify-center min-h-[300px]">
+                <SyncLoader color="#465fff" size={26} />
+              </div>
+            ) : (
+              <BarChart
+                title="Daily Posts"
+                data={postsPerDay}
+                onFilterChange={handleDailyFilters}
+                filterLabel={boardOptions.map((opt) => opt.label)}
+                defaultFilter={
+                  boardOptions.find((opt) => opt.value === dailyBoard)?.label
+                }
+                showDateFilter={true}
+                showDropdown={true}
+                startDate={dailyStartDate}
+                endDate={dailyEndDate}
+                minDate="2025-11-01"
+              />
+            )}
+          </div>
+          <div className="col-span-2 my-1">
+            {/* ---------- ENGAGEMENT CHART (FULL WIDTH) ---------- */}
+            <div className="mt-4">
+              {loadingEngagement ? (
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 flex items-center justify-center min-h-[400px]">
+                  <SyncLoader color="#465fff" />
+                </div>
+              ) : (
+                <GroupedBarChart
+                  title="Engagement by Post Type"
+                  data={engagementStats}
+                  onFilterChange={handleEngagementFilters}
+                  filterLabel={boardOptions.map((opt) => opt.label)}
+                  defaultFilter={
+                    boardOptions.find((opt) => opt.value === engagementBoard)?.label
+                  }
+                  showDateFilter={true}
+                  showDropdown={true}
+                  startDate={engagementStartDate}
+                  endDate={engagementEndDate}
+                  minDate="2025-11-01"
+                />
+              )}
             </div>
-          ) : (
-            <BarChart
-              title="Daily Posts"
-              data={postsPerDay?.data}
-              onApplyFilters={handleChartFilters}
-              filterLabel={boardOptions.map((opt) => opt.label)}
-              defaultFilter={
-                boardOptions.find((opt) => opt.value === selectedBoard)
-                  ?.label || "All Boards"
-              }
-            />
-          )}
+          </div>
         </div>
 
-        {/* Countries Card Section */}
-        <div className="col-span-1">
-          {countryStats.loading ? (
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 sm:px-6 sm:pt-6 flex items-center justify-center min-h-[400px]">
-              <SyncLoader loading={true} color="#465fff" />
+        {/* ---------- COUNTRY STATS ---------- */}
+        <div className="col-span-1 my-1">
+          {loadingCountry ? (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 flex items-center justify-center min-h-[400px]">
+              <SyncLoader color="#465fff" />
             </div>
           ) : (
             <CountriesCard
               countryStats={countryStatsForCard}
-              range={range}
               mapData={mapData}
             />
           )}
         </div>
       </div>
-
-      {/* <div className="grid grid-cols-2 gap-4 min-h-[250px]">
-       </div> */}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Header() {
   return (
     <nav className="relative bg-white after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-gray/5">
@@ -7,25 +9,25 @@ export default function Header() {
             <div className="hidden sm:ml-6 sm:block">
               <div className="flex space-x-4">
                 {/* <!-- Current: "bg-white-950/50 text-white", Default: "text-gray-300 hover:bg-gray hover:text-white" --> */}
-                <a
-                  href="/Chan"
+                <Link
+                  href="/chan"
                   aria-current="page"
                   className="rounded-md bg-white-950/50 px-3 py-2 text-sm font-medium text-black"
                 >
                   4Chan Stats
-                </a>
-                <a
-                  href="/Reddit"
+                </Link>
+                <Link
+                  href="/reddit"
                   className="rounded-md px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray hover:text-gray-500"
                 >
                   Reddit Stats
-                </a>
-                <a
-                  href="#"
+                </Link>
+                <Link
+                  href="/comparison"
                   className="rounded-md px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray hover:text-gray-500"
                 >
-                  Comparision
-                </a>
+                  Comparison
+                </Link>
               </div>
             </div>
           </div>

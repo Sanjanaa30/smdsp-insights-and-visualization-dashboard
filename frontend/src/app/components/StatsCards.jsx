@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import AnimatedNumber from "./AnimatedNumber";
 
 export default function StatsCards({ items }) {
   if (!items) return null;
@@ -42,7 +42,7 @@ export default function StatsCards({ items }) {
                   {item.label}
                 </div>
                 <div className="text-2xl font-semibold text-gray-900 ">
-                  {item.value}
+                  <AnimatedNumber value={item?.value} />
                 </div>
               </div>
             </div>

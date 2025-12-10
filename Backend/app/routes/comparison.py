@@ -1,19 +1,24 @@
-from fastapi import APIRouter, Query, HTTPException
-from app.utils.plsql import PLSQL
+import asyncio
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+
 from app.constants.queries import (
-    SELECT_CHAN_ENGAGEMENT_BY_TYPE,
     SELECT_BOARD_COUNT,
+    SELECT_CHAN_ENGAGEMENT_BY_TYPE,
+    SELECT_BOARD_TOXICITY,
 )
 from app.constants.reddit_queries import (
     SELECT_REDDIT_ENGAGEMENT_BY_TYPE,
     SELECT_SUBREDDIT_COUNT,
+    SELECT_SUBREDDIT_TOXICITY,
 )
-from app.models.chan import PlatformComparisonResponse, PlatformComparisonData
+from app.models.chan import PlatformComparisonData, PlatformComparisonResponse
+from app.models.comparison_response import ForumsToxicity
+from app.utils.plsql import PLSQL, get_data_db
 from dotenv import load_dotenv
-import os
-from pathlib import Path
-from datetime import datetime
-import asyncio
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/comparison", tags=["Platform Comparison"])
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -119,5 +124,68 @@ async def compare_engagement_by_type(
             end_date=end_date,
             data=comparison_data,
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/top-toxic", response_model=List[ForumsToxicity])
+async def get_top_toxic_forums():
+    """
+    Get top toxic forums from both 4chan and Reddit, sorted by average toxicity.
+    Combines data from both platforms and returns a unified list.
+    """
+    try:
+        chan_toxicity = get_data_db(CHAN_DATABASE_URL, SELECT_BOARD_TOXICITY, None)
+        reddit_toxicity = get_data_db(
+            REDDIT_DATABASE_URL, SELECT_SUBREDDIT_TOXICITY, None
+        )
+        
+        final_result = []
+        
+        # Process 4chan toxicity
+        if len(chan_toxicity) > 0:
+            chan_scores = {}
+            for board_name, toxicity in chan_toxicity:
+                if toxicity is not None:
+                    if board_name not in chan_scores:
+                        chan_scores[board_name] = []
+                    chan_scores[board_name].append(float(toxicity))
+
+            for board_name, scores in chan_scores.items():
+                avg = sum(scores) / len(scores)
+                final_result.append(
+                    ForumsToxicity(
+                        forum_name=board_name,
+                        average_toxicity=round(avg, 4),
+                        platform="4chan",
+                    )
+                )
+        
+        # Process Reddit toxicity
+        if len(reddit_toxicity) > 0:
+            reddit_scores = {}
+            for subreddit_name, toxicity in reddit_toxicity:
+                if toxicity is not None:
+                    if subreddit_name not in reddit_scores:
+                        reddit_scores[subreddit_name] = []
+                    reddit_scores[subreddit_name].append(float(toxicity))
+
+            for subreddit_name, scores in reddit_scores.items():
+                avg = sum(scores) / len(scores)
+                final_result.append(
+                    ForumsToxicity(
+                        forum_name=subreddit_name,
+                        average_toxicity=round(avg, 4),
+                        platform="reddit",
+                    )
+                )
+
+        # Sort by average toxicity descending
+        final_result.sort(key=lambda x: x.average_toxicity, reverse=True)
+
+        return final_result
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
