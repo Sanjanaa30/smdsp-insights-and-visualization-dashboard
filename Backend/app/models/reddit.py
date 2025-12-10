@@ -33,6 +33,7 @@ class DailyPostCountByDate(BaseModel):
 class DailyPostCountsResponse(BaseModel):
     data: List[DailyPostCountByDate]
 
+
 class SubScribers(BaseModel):
     subreddit_name: str
     subscribers: int

@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import List, Optional
 
 from app.constants.reddit_queries import (
-    SELECT_ALL_SUBREDDITS,
     SELECT_DAILY_POST_COUNTS_BY_SUBREDDIT,
     SELECT_NUMBER_OF_SUBSCRIBERS,
     SELECT_REDDIT_ENGAGEMENT_BY_TYPE,
@@ -279,4 +278,3 @@ async def get_top_subscribers():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List
 
+
 class ForumsToxicity(BaseModel):
     forum_name: str
     average_toxicity: float

@@ -2,7 +2,7 @@ import asyncio
 import os
 from datetime import datetime, date, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from app.constants.queries import (
     SELECT_BOARD_COUNT,
@@ -309,7 +309,7 @@ async def get_event_related_timeline(
         # Parameters order: start_ts, end_ts (for date_series), then community, start, end, patterns (for subject), patterns (for comment)
         params = (start_ts, end_ts, community, start_ts, end_ts, patterns, patterns)
         rows = get_data_db(CHAN_DATABASE_URL, SELECT_CHAN_EVENT_RELATED, params)
-    
+
     # Both platforms - need to merge results by date
     elif platform == "all" or platform == "":
         # Get Reddit data (all subreddits - no community filter)
@@ -323,12 +323,16 @@ async def get_event_related_timeline(
             end_ts,
             patterns,
         )
-        reddit_rows = get_data_db(REDDIT_DATABASE_URL, SELECT_REDDIT_EVENT_RELATED_ALL, reddit_params)
-        
+        reddit_rows = get_data_db(
+            REDDIT_DATABASE_URL, SELECT_REDDIT_EVENT_RELATED_ALL, reddit_params
+        )
+
         # Get 4chan data (all boards - no community filter)
         chan_params = (start_ts, end_ts, start_ts, end_ts, patterns, patterns)
-        chan_rows = get_data_db(CHAN_DATABASE_URL, SELECT_CHAN_EVENT_RELATED_ALL, chan_params)
-        
+        chan_rows = get_data_db(
+            CHAN_DATABASE_URL, SELECT_CHAN_EVENT_RELATED_ALL, chan_params
+        )
+
         # Merge results by date - sum counts for same dates
         date_counts = {}
         for row in reddit_rows:
@@ -337,7 +341,7 @@ async def get_event_related_timeline(
         for row in chan_rows:
             date_key = row[0]
             date_counts[date_key] = date_counts.get(date_key, 0) + row[1]
-        
+
         # Convert back to sorted list of tuples
         rows = sorted(date_counts.items(), key=lambda x: x[0])
     else:

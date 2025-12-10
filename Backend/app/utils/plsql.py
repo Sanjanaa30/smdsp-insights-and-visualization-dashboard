@@ -24,7 +24,7 @@ class PLSQL:
                 logger.debug(f"Select params: {params}")
             else:
                 logger.debug("Select params: None")
-            
+
             self.cur.execute(query, params)
             records = self.cur.fetchall()
             logger.debug(f"Fetched {len(records)} records")

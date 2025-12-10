@@ -1,11 +1,9 @@
 import os
-from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional
 
 from app.constants.queries import (
     SELECT_ALL_BOARDS,
-    SELECT_BOARD_TOXICITY,
     SELECT_CHAN_COUNTRY_STATS,
     SELECT_CHAN_DAILY_POST_COUNT,
     SELECT_CHAN_ENGAGEMENT_BY_TYPE,
@@ -309,7 +307,7 @@ async def get_engagement_by_type(board_name: str, start_date: str, end_date: str
                 )
             else:
                 logger.warning(f"Skipping malformed row {idx}: {row}")
-                
+
         if data:  # avoid division by zero if empty
             max_threads = max(d.total_threads for d in data)
             max_replies = max(d.total_replies for d in data)
