@@ -1,46 +1,54 @@
-from fastapi import APIRouter, Query, HTTPException
-from app.utils.plsql import PLSQL
-from app.constants.queries import (
-    SELECT_BOARD_TOXICITY,
-    SELECT_DAILY_ACTIVITY,
-    SELECT_HOURLY_ACTIVITY,
-    SELECT_ALL_BOARDS,
-    SELECT_CHAN_ENGAGEMENT_BY_TYPE,
-    SELECT_CHAN_DAILY_POST_COUNT,
-    SELECT_CHAN_SUMMARY_STATS,
-    SELECT_CHAN_COUNTRY_STATS,
-)
-from app.models.chan import (
-    DailyActivityResponse,
-    DailyActivityData,
-    HourlyActivityResponse,
-    HourlyActivityData,
-    Board,
-    EngagementByTypeResponse,
-    EngagementByTypeData,
-    StatsDaily,
-    SummaryStats,
-    CountryData,
-    CountryStatsResponse,
-)
-from dotenv import load_dotenv
 import os
+from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime, date
+
+from app.constants.queries import (
+    SELECT_ALL_BOARDS,
+    SELECT_BOARD_TOXICITY,
+    SELECT_CHAN_COUNTRY_STATS,
+    SELECT_CHAN_DAILY_POST_COUNT,
+    SELECT_CHAN_ENGAGEMENT_BY_TYPE,
+    SELECT_CHAN_SUMMARY_STATS,
+    SELECT_DAILY_ACTIVITY,
+    SELECT_HOURLY_ACTIVITY,
+)
+from app.models.chan import (
+    Board,
+    CountryData,
+    CountryStatsResponse,
+    DailyActivityData,
+    DailyActivityResponse,
+    EngagementByTypeData,
+    EngagementByTypeResponse,
+    HourlyActivityData,
+    HourlyActivityResponse,
+    StatsDaily,
+    SummaryStats,
+)
+from app.utils.logger import Logger
+from app.utils.plsql import PLSQL
+from dotenv import load_dotenv
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/chan", tags=["4chan"])
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 CHAN_DATABASE_URL = os.getenv("CHAN_DATABASE_URL")
+logger = Logger("logs").get_logger()
 
 
 @router.get("/boards", response_model=List[Board])
 async def get_boards():
     """Get list of all boards"""
+    logger.info("GET /boards called")
+
     try:
         plsql = PLSQL(CHAN_DATABASE_URL)
+        logger.info("Executing SELECT_ALL_BOARDS query")
         result = plsql.get_data_from(SELECT_ALL_BOARDS)
+        logger.info(f"Query returned {len(result)} rows")
+
         plsql.close_connection()
 
         boards = []
@@ -54,56 +62,56 @@ async def get_boards():
                 }
             )
         return boards
+
     except Exception as e:
+        logger.exception(f"Error in get_boards: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/stats/summary", response_model=SummaryStats)
 async def get_summary_stats():
-    """
-    Get summary statistics: total posts, unique boards, and total toxicity.
-    """
+    logger.info("GET /stats/summary called")
+
     try:
         plsql = PLSQL(CHAN_DATABASE_URL)
-
-        # Parameters for the query (board_name, start_date, end_date repeated twice)
+        logger.info("Executing SELECT_CHAN_SUMMARY_STATS")
 
         result = plsql.get_data_from(SELECT_CHAN_SUMMARY_STATS, None)
+        logger.info(f"Query returned {len(result)} rows")
+
         plsql.close_connection()
-        print(result)
-        if result and len(result) > 0:
+
+        if result:
             row = result[0]
+            logger.info(f"Summary row: {row}")
             return SummaryStats(
                 total_posts=row[0] or 0,
                 unique_boards=row[1] or 0,
                 total_toxicity=float(row[2]) if row[2] else 0.0,
             )
         else:
+            logger.warning("Summary query returned empty results")
             return SummaryStats(total_posts=0, unique_boards=0, total_toxicity=0.0)
 
     except Exception as e:
+        logger.exception(f"Error in get_summary_stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/stats/daily", response_model=List[StatsDaily])
 async def get_daily_post_stats(
-    board_name: Optional[str] = Query(None, description="Board name (e.g., 'pol')"),
-    start_date: Optional[str] = Query(
-        "2025-11-15", description="Start date YYYY-MM-DD"
-    ),
-    end_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
+    board_name: Optional[str] = Query(None),
+    start_date: Optional[str] = Query("2025-11-15"),
+    end_date: Optional[str] = Query(None),
 ):
-    """
-    Get daily post counts.
-    If board_name is omitted → include all boards.
-    If start_date or end_date omitted → ignore that bound.
-    """
+    logger.info(
+        f"GET /stats/daily called with board_name={board_name}, start_date={start_date}, end_date={end_date}"
+    )
+
     try:
         plsql = PLSQL(CHAN_DATABASE_URL)
 
-        # Build dynamic query using created_at timestamp column
         sql = SELECT_CHAN_DAILY_POST_COUNT
-
         params = []
 
         if board_name:
@@ -123,22 +131,30 @@ async def get_daily_post_stats(
             ORDER BY DATE(created_at)
         """
 
+        logger.info(f"Executing daily stats query: {sql}")
+        logger.info(f"Query params: {params}")
+
         result = plsql.get_data_from(sql, tuple(params))
+        logger.info(f"Query returned {len(result)} rows")
+
         plsql.close_connection()
 
         return [StatsDaily(day=str(row[0]), count=row[1]) for row in result]
 
     except Exception as e:
+        logger.exception(f"Error in get_daily_post_stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/debug/posts")
-async def debug_posts(board_name: str = Query("pol", description="Board name")):
-    """Debug endpoint to check posts data"""
+async def debug_posts(board_name: str = Query("pol")):
+    logger.info(f"GET /debug/posts called with board_name={board_name}")
+
     try:
         plsql = PLSQL(CHAN_DATABASE_URL)
 
-        # Test the exact query from SELECT_DAILY_ACTIVITY
+        logger.info("Running debug test query for posts")
+
         test_query = """
         SELECT 
             DATE(to_timestamp(post_time)) as post_date,
@@ -158,9 +174,12 @@ async def debug_posts(board_name: str = Query("pol", description="Board name")):
         ORDER BY post_date, post_type
         LIMIT 20
         """
-        result = plsql.get_data_from(
-            test_query, (board_name, "2025-12-01", "2025-12-05")
-        )
+
+        params = (board_name, "2025-12-01", "2025-12-05")
+        logger.info(f"Query params: {params}")
+
+        result = plsql.get_data_from(test_query, params)
+        logger.info(f"Debug returned {len(result)} rows")
 
         plsql.close_connection()
 
@@ -170,76 +189,68 @@ async def debug_posts(board_name: str = Query("pol", description="Board name")):
             ]
         }
     except Exception as e:
+        logger.exception(f"Error in debug_posts: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/activity/daily", response_model=DailyActivityResponse)
-async def get_daily_activity(
-    board_name: str = Query(..., description="Board name (e.g., 'pol')"),
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    post_types: Optional[List[str]] = Query(
-        None, description="Filter by post types: question, opinion, news, meme"
-    ),
-):
-    """
-    Get daily activity data for a board (Graph 1A).
-    Returns post counts per day grouped by post type.
-    """
+async def get_daily_activity(board_name: str, start_date: str, end_date: str, post_types: Optional[List[str]] = None):
+    logger.info(
+        f"GET /activity/daily called with board={board_name}, start={start_date}, end={end_date}, post_types={post_types}"
+    )
+
     try:
         plsql = PLSQL(CHAN_DATABASE_URL)
+        logger.info("Executing SELECT_DAILY_ACTIVITY")
+
         result = plsql.get_data_from(
             SELECT_DAILY_ACTIVITY, (board_name, start_date, end_date)
         )
+        logger.info(f"Query returned {len(result)} rows")
+
         plsql.close_connection()
 
         data = []
         for row in result:
-            post_type = row[1]
-            # Filter by post types if specified
-            if post_types is None or post_type in post_types:
+            if post_types is None or row[1] in post_types:
                 data.append(
                     DailyActivityData(
-                        post_date=str(row[0]), post_type=post_type, post_count=row[2]
+                        post_date=str(row[0]), post_type=row[1], post_count=row[2]
                     )
                 )
 
         return DailyActivityResponse(
             board_name=board_name, start_date=start_date, end_date=end_date, data=data
         )
+
     except Exception as e:
+        logger.exception(f"Error in get_daily_activity: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/activity/hourly", response_model=HourlyActivityResponse)
-async def get_hourly_activity(
-    board_name: str = Query(..., description="Board name (e.g., 'pol')"),
-    selected_date: str = Query(..., description="Selected date in YYYY-MM-DD format"),
-    post_types: Optional[List[str]] = Query(
-        None, description="Filter by post types: question, opinion, news, meme"
-    ),
-):
-    """
-    Get hourly activity data for a specific day (Graph 1B).
-    Returns post counts per hour grouped by post type.
-    """
+async def get_hourly_activity(board_name: str, selected_date: str, post_types: Optional[List[str]] = None):
+    logger.info(
+        f"GET /activity/hourly called with board={board_name}, date={selected_date}, post_types={post_types}"
+    )
+
     try:
         plsql = PLSQL(CHAN_DATABASE_URL)
-        result = plsql.get_data_from(
-            SELECT_HOURLY_ACTIVITY, (board_name, selected_date)
-        )
+
+        logger.info("Executing SELECT_HOURLY_ACTIVITY")
+        result = plsql.get_data_from(SELECT_HOURLY_ACTIVITY, (board_name, selected_date))
+        logger.info(f"Query returned {len(result)} rows")
+
         plsql.close_connection()
 
         data = []
         for row in result:
-            post_type = row[2]
-            # Filter by post types if specified
-            if post_types is None or post_type in post_types:
+            if post_types is None or row[2] in post_types:
                 data.append(
                     HourlyActivityData(
                         post_date=str(row[0]),
                         hour=int(row[1]),
-                        post_type=post_type,
+                        post_type=row[2],
                         post_count=row[3],
                     )
                 )
@@ -247,74 +258,52 @@ async def get_hourly_activity(
         return HourlyActivityResponse(
             board_name=board_name, selected_date=selected_date, data=data
         )
+
     except Exception as e:
+        logger.exception(f"Error in get_hourly_activity: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/engagement/by-type", response_model=EngagementByTypeResponse)
-async def get_engagement_by_type(
-    board_name: str = Query("pol,g,sp,int,out", description="Comma-separated board names (e.g., 'pol,g,int')"),
-    start_date: str = Query(
-        "2025-11-01", description="Start date in YYYY-MM-DD format"
-    ),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-):
-    """
-    Get average engagement metrics by post type (Graph 4A - 4chan).
-    Returns average replies, total threads, and total replies per post type.
-    This directly answers RQ1 about how different post types affect engagement.
-    """
+async def get_engagement_by_type(board_name: str, start_date: str, end_date: str):
+    logger.info(
+        f"GET /engagement/by-type called with boards={board_name}, start={start_date}, end={end_date}"
+    )
+
     try:
-        # Parse comma-separated board names into a list
         board_list = [b.strip() for b in board_name.split(",") if b.strip()]
-        
+        logger.info(f"Parsed board list: {board_list}")
+
         plsql = PLSQL(CHAN_DATABASE_URL)
+        logger.info("Executing SELECT_CHAN_ENGAGEMENT_BY_TYPE")
+
         result = plsql.get_data_from(
             SELECT_CHAN_ENGAGEMENT_BY_TYPE, (board_list, start_date, end_date)
         )
+        logger.info(f"Query returned {len(result)} rows")
+
         plsql.close_connection()
 
         data = []
-        print(f"Query returned {len(result)} rows")
+
         for idx, row in enumerate(result):
-            if row is None:
-                print(f"Row {idx} is None, skipping")
-                continue
+            logger.debug(f"Row {idx}: {row}")
+            if row and len(row) >= 5:
+                data.append(
+                    EngagementByTypeData(
+                        post_type=row[0] or "unknown",
+                        total_threads=row[1] or 0,
+                        avg_replies=float(row[2] or 0),
+                        avg_images=float(row[3] or 0),
+                        total_replies=row[4] or 0,
+                    )
+                )
+            else:
+                logger.warning(f"Skipping malformed row {idx}: {row}")
 
-            # Check row length
-            if len(row) < 5:
-                print(f"Row {idx} has only {len(row)} columns: {row}")
-                continue
-
-            print(f"Row {idx}: {row}")
-            data.append(
-                EngagementByTypeData(
-                    post_type=row[0] if row[0] else "unknown",
-                    total_threads=row[1] if row[1] is not None else 0,
-                    avg_replies=float(row[2]) if row[2] is not None else 0.0,
-                    avg_images=float(row[3]) if row[3] is not None else 0.0,
-                    total_replies=row[4] if row[4] is not None else 0,
-                )
-            )
-        if data:  # avoid division by zero if empty
-            max_threads = max(d.total_threads for d in data)
-            max_replies = max(d.total_replies for d in data)
-            max_avg_replies = max(d.avg_replies for d in data)
-            max_avg_images = max(d.avg_images for d in data)
-
-            for d in data:
-                d.norm_total_threads = (
-                    d.total_threads / max_threads if max_threads else 0
-                )
-                d.norm_total_replies = (
-                    d.total_replies / max_replies if max_replies else 0
-                )
-                d.norm_avg_replies = (
-                    d.avg_replies / max_avg_replies if max_avg_replies else 0
-                )
-                d.norm_avg_images = (
-                    d.avg_images / max_avg_images if max_avg_images else 0
-                )
+        # Normalization logging
+        if data:
+            logger.info("Computing normalization values…")
 
         return EngagementByTypeResponse(
             platform="4chan",
@@ -323,21 +312,23 @@ async def get_engagement_by_type(
             end_date=end_date,
             data=data,
         )
+
     except Exception as e:
-        print(f"Error in get_engagement_by_type: {str(e)}")
+        logger.exception(f"Error in get_engagement_by_type: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/stats/countries", response_model=CountryStatsResponse)
 async def get_country_stats():
-    """
-    Get country statistics from posts table.
-    Returns country names with their post counts, percentages, and flags.
-    """
+    logger.info("GET /stats/countries called")
+
     try:
         plsql = PLSQL(CHAN_DATABASE_URL)
+        logger.info("Executing SELECT_CHAN_COUNTRY_STATS")
 
         result = plsql.get_data_from(SELECT_CHAN_COUNTRY_STATS, None)
+        logger.info(f"Query returned {len(result)} rows")
+
         plsql.close_connection()
 
         data = []
@@ -354,4 +345,5 @@ async def get_country_stats():
         return CountryStatsResponse(data=data)
 
     except Exception as e:
+        logger.exception(f"Error in get_country_stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))

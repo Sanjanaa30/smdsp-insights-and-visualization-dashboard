@@ -12,7 +12,7 @@ WHERE 1=1
 # Summary statistics query
 SELECT_CHAN_SUMMARY_STATS = """
 SELECT 
-    COUNT(*) AS total_posts,
+    COUNT(DISTINCT post_no) AS total_posts,
     COUNT(DISTINCT board_name) AS unique_boards,
     (SELECT COUNT(*) FROM toxicity) AS total_toxicity
 FROM posts;
