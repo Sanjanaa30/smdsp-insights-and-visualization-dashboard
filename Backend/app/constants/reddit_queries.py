@@ -21,7 +21,7 @@ FROM (
            ------------------------------------------ */
         CASE 
             /* ---- Strong question detection ---- */
-            WHEN LOWER(p.title) ~ '\?$'
+            WHEN LOWER(p.title) ~ '\\?$'
               OR LOWER(p.title) LIKE '%%why%%'
               OR LOWER(p.title) LIKE '%%how%%'
               OR LOWER(p.title) LIKE '%%what do you think%%'

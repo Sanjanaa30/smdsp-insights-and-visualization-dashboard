@@ -93,7 +93,7 @@ FROM (
         /* ---- Enhanced Post-Type Classification ---- */
         CASE 
             /* Strong question detection */
-            WHEN LOWER(p.comment) ~ '\?$'
+            WHEN LOWER(p.comment) ~ '\\?$'
               OR LOWER(p.comment) LIKE '%%why%%'
               OR LOWER(p.comment) LIKE '%%how%%'
               OR LOWER(p.comment) LIKE '%%what do you think%%'
