@@ -26,6 +26,7 @@ export const getEngagementByType = async ({ board_name, start_date, end_date }) 
     const params = {};
 
     if (board_name) params.board_name = board_name;
+    if (board_name == "") params.board_name = "pol,g,sp,int,out"
     if (start_date) params.start_date = start_date;
     if (end_date) params.end_date = end_date;
 
