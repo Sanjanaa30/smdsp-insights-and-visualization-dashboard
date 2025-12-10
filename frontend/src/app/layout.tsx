@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "./components/Header";
+import CopilotWrapper from "./components/Copilot/CopilotWrapper"
 import { QueryProvider } from "./components/QueryProvider";
 
 const geistSans = Geist({
@@ -35,10 +36,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <QueryProvider>
-          <Header />
-          {children}
-        </QueryProvider>
+        <CopilotWrapper>
+          <QueryProvider>
+            <Header />
+            {children}
+          </QueryProvider>
+        </CopilotWrapper>
       </body>
     </html>
   );
