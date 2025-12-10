@@ -13,3 +13,15 @@ export const getToxicity = async ({ board_name, start_date, end_date } = {}) => 
     const { data } = await axios.get(API_URL + "top-toxic", { params });
     return data;
 };
+
+export const getEventRelatedData = async ({ platform, community, event_date, window } = {}) => {
+    const params = {};
+
+    params.platform = platform || "all";
+    if (community) params.community = community;
+    if (event_date) params.event_date = event_date;
+    if (window) params.window = window;
+
+    const { data } = await axios.get(API_URL + "event-related-timeline", { params });
+    return data;
+};

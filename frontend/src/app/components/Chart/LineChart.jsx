@@ -1,30 +1,51 @@
 "use client";
 import dynamic from "next/dynamic";
+import Filter from "../Filter/Filter";
+
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
 
-export default function LineChartOne({
+export default function LineChart({
   title,
   filterLabel = [], // array of categories
   data,
   datesEnabled = false,
   onApplyFilters = () => {},
   defaultFilter = null,
+  // New: array of filter configs
+  showFilters = false,
+  filters = [], // [{ label, options, selected, onChange }]
 }) {
-  // Transform data for the chart
-  const categories = data?.data?.map((item) => item.date) || [];
+  // Detect data format and transform accordingly
+  let categories = [];
+  let series = [];
 
-  // Get all unique subreddit names
-  const subredditNames =
-    data?.data?.length > 0 ? Object.keys(data.data[0].subreddit_counts) : [];
+  // Check if data is timeline format (single series with date/count)
+  if (data?.timeline) {
+    // Timeline format: { platform, community, timeline: [{ date, count }] }
+    categories = data.timeline.map((item) => item.date);
+    series = [
+      {
+        name: data.community || "Count",
+        data: data.timeline.map((item) => item.count),
+      },
+    ];
+  } else if (data?.data) {
+    // Multi-series format: { data: [{ date, subreddit_counts: { ... } }] }
+    categories = data.data.map((item) => item.date);
 
-  // Create series data for each subreddit
-  const series = subredditNames.map((subredditName) => ({
-    name: subredditName.charAt(0).toUpperCase() + subredditName.substring(1,),
-    data: data.data.map((item) => item.subreddit_counts[subredditName] || 0),
-  }));
+    // Get all unique subreddit names
+    const subredditNames =
+      data.data.length > 0 ? Object.keys(data.data[0].subreddit_counts) : [];
+
+    // Create series data for each subreddit
+    series = subredditNames.map((subredditName) => ({
+      name: subredditName.charAt(0).toUpperCase() + subredditName.substring(1),
+      data: data.data.map((item) => item.subreddit_counts[subredditName] || 0),
+    }));
+  }
 
   const options = {
     // legend: {
@@ -126,6 +147,23 @@ export default function LineChartOne({
         <h3 className="text-lg font-semibold text-gray-800">
           {title || "Daily Posts"}
         </h3>
+
+        {/* RIGHT: Filters */}
+        {showFilters && filters.length > 0 && (
+          <div className="flex items-center gap-2">
+            {filters.map((filter, index) => (
+              <Filter
+                key={index}
+                showDropdown={true}
+                showDateFilter={false}
+                dropdownOptions={filter.options}
+                selectedOption={filter.selected}
+                dropdownLabel={filter.label}
+                onOptionChange={filter.onChange}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <ReactApexChart
         options={options}

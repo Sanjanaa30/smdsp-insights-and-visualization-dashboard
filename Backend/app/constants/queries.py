@@ -149,3 +149,58 @@ ORDER BY post_type;
 SELECT_BOARD_TOXICITY = """
 SELECT board_name, toxicity FROM toxicity WHERE toxicity IS NOT NULL
 """
+
+# Event-related posts timeline for 4chan
+# Uses created_at (TIMESTAMP) column for date filtering
+# Generates complete date series to show 0 counts for days without matches
+SELECT_CHAN_EVENT_RELATED = """
+WITH date_series AS (
+    SELECT generate_series(
+        DATE(TO_TIMESTAMP(%s)),
+        DATE(TO_TIMESTAMP(%s)) - INTERVAL '1 day',
+        INTERVAL '1 day'
+    )::DATE AS day
+),
+event_counts AS (
+    SELECT DATE(created_at) AS day, COUNT(*) AS count
+    FROM posts
+    WHERE board_name = %s
+      AND created_at >= TO_TIMESTAMP(%s)
+      AND created_at < TO_TIMESTAMP(%s)
+      AND (
+            LOWER(COALESCE(subject, '')) LIKE ANY(%s)
+            OR LOWER(COALESCE(comment, '')) LIKE ANY(%s)
+          )
+    GROUP BY DATE(created_at)
+)
+SELECT ds.day, COALESCE(ec.count, 0) AS count
+FROM date_series ds
+LEFT JOIN event_counts ec ON ds.day = ec.day
+ORDER BY ds.day;
+"""
+
+# Event-related posts timeline for 4chan - ALL boards (no community filter)
+SELECT_CHAN_EVENT_RELATED_ALL = """
+WITH date_series AS (
+    SELECT generate_series(
+        DATE(TO_TIMESTAMP(%s)),
+        DATE(TO_TIMESTAMP(%s)) - INTERVAL '1 day',
+        INTERVAL '1 day'
+    )::DATE AS day
+),
+event_counts AS (
+    SELECT DATE(created_at) AS day, COUNT(*) AS count
+    FROM posts
+    WHERE created_at >= TO_TIMESTAMP(%s)
+      AND created_at < TO_TIMESTAMP(%s)
+      AND (
+            LOWER(COALESCE(subject, '')) LIKE ANY(%s)
+            OR LOWER(COALESCE(comment, '')) LIKE ANY(%s)
+          )
+    GROUP BY DATE(created_at)
+)
+SELECT ds.day, COALESCE(ec.count, 0) AS count
+FROM date_series ds
+LEFT JOIN event_counts ec ON ds.day = ec.day
+ORDER BY ds.day;
+"""

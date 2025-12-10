@@ -1,16 +1,20 @@
 import asyncio
 import os
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Optional
 
 from app.constants.queries import (
     SELECT_BOARD_COUNT,
-    SELECT_CHAN_ENGAGEMENT_BY_TYPE,
     SELECT_BOARD_TOXICITY,
+    SELECT_CHAN_ENGAGEMENT_BY_TYPE,
+    SELECT_CHAN_EVENT_RELATED,
+    SELECT_CHAN_EVENT_RELATED_ALL,
 )
 from app.constants.reddit_queries import (
     SELECT_REDDIT_ENGAGEMENT_BY_TYPE,
+    SELECT_REDDIT_EVENT_RELATED,
+    SELECT_REDDIT_EVENT_RELATED_ALL,
     SELECT_SUBREDDIT_COUNT,
     SELECT_SUBREDDIT_TOXICITY,
 )
@@ -139,9 +143,9 @@ async def get_top_toxic_forums():
         reddit_toxicity = get_data_db(
             REDDIT_DATABASE_URL, SELECT_SUBREDDIT_TOXICITY, None
         )
-        
+
         final_result = []
-        
+
         # Process 4chan toxicity
         if len(chan_toxicity) > 0:
             chan_scores = {}
@@ -160,7 +164,7 @@ async def get_top_toxic_forums():
                         platform="4chan",
                     )
                 )
-        
+
         # Process Reddit toxicity
         if len(reddit_toxicity) > 0:
             reddit_scores = {}
@@ -189,3 +193,162 @@ async def get_top_toxic_forums():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+CLOUDFLARE_KEYWORDS = [
+    "cloudflare",
+    "cloud flare",
+    "cf outage",
+    "cloudflare down",
+    "cloudflare outage",
+    "dns issue",
+    "cloudflare dns",
+    "cloudflare error",
+    "cloudflare not working",
+    "gateway timeout",
+    "5xx",
+    "error 500",
+    "error 520",
+    "error 522",
+    # Added keywords
+    "cloudflare service disruption",
+    "cloudflare status",
+    "cloudflare network issue",
+    "cloudflare connectivity issue",
+    "cloudflare routing issue",
+    "cloudflare incident",
+    "cloudflare downtime",
+    "cloudflare problems",
+    "cloudflare malfunction",
+    "cloudflare crash",
+    # DNS-related
+    "cloudflare dns outage",
+    "cloudflare dns down",
+    "cloudflare dns failure",
+    "cloudflare dns not responding",
+    "dns resolving issue",
+    "dns resolution failure",
+    "dns lookup failed",
+    "dns unavailable",
+    "dns propagation issue",
+    # Errors
+    "cloudflare 5xx",
+    "cloudflare 500 error",
+    "cloudflare 502 bad gateway",
+    "cloudflare 503 service unavailable",
+    "cloudflare 504 gateway timeout",
+    "cloudflare 524 timeout",
+    "cloudflare 523 origin unreachable",
+    "cloudflare 521 web server down",
+    "origin server timeout",
+    "server unreachable",
+    # Performance & security issues
+    "cloudflare rate limit",
+    "cloudflare firewall error",
+    "cloudflare ssl issue",
+    "ssl handshake failed",
+    "tls handshake failure",
+    "connection timed out",
+    "connection reset",
+    "network congestion cloudflare",
+    "ddos protection triggered",
+    "cdn outage",
+    "edge server issue",
+    # Cloudflare services outages
+    "cloudflare api down",
+    "cloudflare workers issue",
+    "cloudflare workers outage",
+    "cloudflare pages outage",
+    "cloudflare r2 outage",
+    "cloudflare zero trust issue",
+    "cloudflare tunnel down",
+    "cloudflare warp not working",
+    # User search phrases
+    "why is cloudflare down",
+    "cloudflare issues today",
+    "cloudflare outage today",
+    "sites down cloudflare",
+    "website not loading cloudflare",
+    "cannot connect via cloudflare",
+    "websites timing out cf",
+]
+
+
+@router.get("/event-related-timeline")
+async def get_event_related_timeline(
+    platform: str, community: str = "", event_date: date = None, window: int = 7
+):
+    print("event_date", event_date)
+    start_dt = event_date - timedelta(days=window)
+    end_dt = event_date + timedelta(days=window)
+
+    # Build LIKE patterns such as ["%cloudflare%", "%cf outage%", ...]
+    patterns = [f"%{kw}%" for kw in CLOUDFLARE_KEYWORDS]
+    start_ts = int(datetime.combine(start_dt, datetime.min.time()).timestamp())
+    end_ts = int(datetime.combine(end_dt, datetime.min.time()).timestamp())
+    # Reddit
+    print(start_ts, end_ts)
+    if platform == "reddit":
+        # Parameters order: start_ts, end_ts (for date_series), then community, start, end, patterns (repeated for posts and comments)
+        params = (
+            start_ts,  # date_series start
+            end_ts,  # date_series end
+            community,
+            start_ts,
+            end_ts,
+            patterns,
+            community,
+            start_ts,
+            end_ts,
+            patterns,
+        )
+        rows = get_data_db(REDDIT_DATABASE_URL, SELECT_REDDIT_EVENT_RELATED, params)
+
+    # 4chan
+    elif platform == "chan":
+        # Parameters order: start_ts, end_ts (for date_series), then community, start, end, patterns (for subject), patterns (for comment)
+        params = (start_ts, end_ts, community, start_ts, end_ts, patterns, patterns)
+        rows = get_data_db(CHAN_DATABASE_URL, SELECT_CHAN_EVENT_RELATED, params)
+    
+    # Both platforms - need to merge results by date
+    elif platform == "all" or platform == "":
+        # Get Reddit data (all subreddits - no community filter)
+        reddit_params = (
+            start_ts,
+            end_ts,
+            start_ts,
+            end_ts,
+            patterns,
+            start_ts,
+            end_ts,
+            patterns,
+        )
+        reddit_rows = get_data_db(REDDIT_DATABASE_URL, SELECT_REDDIT_EVENT_RELATED_ALL, reddit_params)
+        
+        # Get 4chan data (all boards - no community filter)
+        chan_params = (start_ts, end_ts, start_ts, end_ts, patterns, patterns)
+        chan_rows = get_data_db(CHAN_DATABASE_URL, SELECT_CHAN_EVENT_RELATED_ALL, chan_params)
+        
+        # Merge results by date - sum counts for same dates
+        date_counts = {}
+        for row in reddit_rows:
+            date_key = row[0]
+            date_counts[date_key] = date_counts.get(date_key, 0) + row[1]
+        for row in chan_rows:
+            date_key = row[0]
+            date_counts[date_key] = date_counts.get(date_key, 0) + row[1]
+        
+        # Convert back to sorted list of tuples
+        rows = sorted(date_counts.items(), key=lambda x: x[0])
+    else:
+        raise HTTPException(400, "Invalid platform")
+
+    final_result = [{"date": str(row[0]), "count": row[1]} for row in rows]
+
+    return {
+        "platform": platform,
+        "community": community,
+        "event_date": str(event_date),
+        "window": window,
+        "timeline": final_result,
+    }

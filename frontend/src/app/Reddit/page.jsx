@@ -58,7 +58,7 @@ export default function Page() {
   ];
 
   return (
-    <div className="container mx-auto p-2">
+    <div className="container mx-auto px-10 py-5">
       {/* Summary Cards */}
       {summaryLoading ? (
         <div className="grid grid-cols-3 gap-4 mb-4">

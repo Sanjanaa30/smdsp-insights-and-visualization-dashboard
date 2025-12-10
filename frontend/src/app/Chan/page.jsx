@@ -17,12 +17,12 @@ import GroupedBarChart from "../components/Chart/GroupedBarChart";
 
 export default function Page() {
   // ---------------- FILTER STATE FOR DAILY STATS ----------------
-  const [dailyBoard, setDailyBoard] = useState("pol");
+  const [dailyBoard, setDailyBoard] = useState("");
   const [dailyStartDate, setDailyStartDate] = useState("2025-11-14");
   const [dailyEndDate, setDailyEndDate] = useState("2025-12-05");
 
   // ---------------- FILTER STATE FOR ENGAGEMENT ----------------
-  const [engagementBoard, setEngagementBoard] = useState("pol");
+  const [engagementBoard, setEngagementBoard] = useState("");
   const [engagementStartDate, setEngagementStartDate] = useState("2025-11-14");
   const [engagementEndDate, setEngagementEndDate] = useState("2025-12-05");
 
@@ -43,7 +43,8 @@ export default function Page() {
     end_date: dailyEndDate,
   });
 
-  const { data: summaryChanStats, isLoading: loadingSummary } = useSummaryStats();
+  const { data: summaryChanStats, isLoading: loadingSummary } =
+    useSummaryStats();
 
   const { data: countryStats, isLoading: loadingCountry } = useCountryStats();
 
@@ -130,7 +131,7 @@ export default function Page() {
   // ---------------- RENDER UI ----------------
 
   return (
-    <div className="container mx-auto p-2">
+    <div className="container mx-auto px-10 py-5">
       {/* ---------- SUMMARY CARDS ---------- */}
       {loadingSummary ? (
         <div className="grid grid-cols-3 gap-4 mb-4">
@@ -188,7 +189,8 @@ export default function Page() {
                   onFilterChange={handleEngagementFilters}
                   filterLabel={boardOptions.map((opt) => opt.label)}
                   defaultFilter={
-                    boardOptions.find((opt) => opt.value === engagementBoard)?.label
+                    boardOptions.find((opt) => opt.value === engagementBoard)
+                      ?.label
                   }
                   showDateFilter={true}
                   showDropdown={true}

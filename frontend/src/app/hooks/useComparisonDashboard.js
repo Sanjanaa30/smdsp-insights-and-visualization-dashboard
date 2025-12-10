@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getToxicity } from "../api/comparisonApi";
+import { getToxicity, getEventRelatedData } from "../api/comparisonApi";
 
 // Default query options to prevent unnecessary refetches
 const defaultQueryOptions = {
@@ -15,6 +15,15 @@ export const useToxicity = ({ board_name, start_date, end_date } = {}) => {
         queryKey: ["toxicity", board_name, start_date, end_date],
         queryFn: () => getToxicity({ board_name, start_date, end_date }),
         enabled: true, // always fetch on mount. Set to false if you want manual trigger.
+        ...defaultQueryOptions
+    });
+};
+
+export const useEventRelated = ({ platform, community, eventDate: eventDate, window } = {}) => {
+    return useQuery({
+        queryKey: [`event_related`, platform, community, eventDate, window],
+        queryFn: () => getEventRelatedData({ platform, community, event_date: eventDate, window }),
+        enabled: true,
         ...defaultQueryOptions
     });
 };
