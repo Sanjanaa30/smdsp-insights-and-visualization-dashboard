@@ -194,7 +194,12 @@ async def debug_posts(board_name: str = Query("pol")):
 
 
 @router.get("/activity/daily", response_model=DailyActivityResponse)
-async def get_daily_activity(board_name: str, start_date: str, end_date: str, post_types: Optional[List[str]] = None):
+async def get_daily_activity(
+    board_name: str,
+    start_date: str,
+    end_date: str,
+    post_types: Optional[List[str]] = None,
+):
     logger.info(
         f"GET /activity/daily called with board={board_name}, start={start_date}, end={end_date}, post_types={post_types}"
     )
@@ -229,7 +234,9 @@ async def get_daily_activity(board_name: str, start_date: str, end_date: str, po
 
 
 @router.get("/activity/hourly", response_model=HourlyActivityResponse)
-async def get_hourly_activity(board_name: str, selected_date: str, post_types: Optional[List[str]] = None):
+async def get_hourly_activity(
+    board_name: str, selected_date: str, post_types: Optional[List[str]] = None
+):
     logger.info(
         f"GET /activity/hourly called with board={board_name}, date={selected_date}, post_types={post_types}"
     )
@@ -238,7 +245,9 @@ async def get_hourly_activity(board_name: str, selected_date: str, post_types: O
         plsql = PLSQL(CHAN_DATABASE_URL)
 
         logger.info("Executing SELECT_HOURLY_ACTIVITY")
-        result = plsql.get_data_from(SELECT_HOURLY_ACTIVITY, (board_name, selected_date))
+        result = plsql.get_data_from(
+            SELECT_HOURLY_ACTIVITY, (board_name, selected_date)
+        )
         logger.info(f"Query returned {len(result)} rows")
 
         plsql.close_connection()
@@ -300,6 +309,26 @@ async def get_engagement_by_type(board_name: str, start_date: str, end_date: str
                 )
             else:
                 logger.warning(f"Skipping malformed row {idx}: {row}")
+                
+        if data:  # avoid division by zero if empty
+            max_threads = max(d.total_threads for d in data)
+            max_replies = max(d.total_replies for d in data)
+            max_avg_replies = max(d.avg_replies for d in data)
+            max_avg_images = max(d.avg_images for d in data)
+
+            for d in data:
+                d.norm_total_threads = (
+                    d.total_threads / max_threads if max_threads else 0
+                )
+                d.norm_total_replies = (
+                    d.total_replies / max_replies if max_replies else 0
+                )
+                d.norm_avg_replies = (
+                    d.avg_replies / max_avg_replies if max_avg_replies else 0
+                )
+                d.norm_avg_images = (
+                    d.avg_images / max_avg_images if max_avg_images else 0
+                )
 
         # Normalization logging
         if data:
