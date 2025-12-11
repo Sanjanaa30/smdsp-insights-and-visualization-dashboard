@@ -4,20 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
-class Settings:
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    BASE_URL: str = os.getenv("OPENAI_BASE_URL", "https://llm.gauravshivaprasad.com/v1")
-    BASE_URL = "https://api.3ya.io/api/v1"
-    CLIENT_ID: str = os.getenv("CLIENT_ID", "")
-    CLIENT_SECRET: str = os.getenv("CLIENT_SECRET", "")
-
-
-settings = Settings()
-
 llm = ChatOpenAI(
-    model="o3",
-    base_url=settings.BASE_URL,
-    api_key=settings.OPENAI_API_KEY,
+    model="gpt-4.1-mini",
+    api_key="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",
     temperature=0,
 )
