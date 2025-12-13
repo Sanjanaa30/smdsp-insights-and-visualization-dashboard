@@ -113,7 +113,7 @@ Access the following dashboards once the frontend is running:
   - Event-related discussion trends
   - Unified analytics view
 
-## �📚 API Documentation
+## 📚 API Documentation
 
 Once the backend is running, access the interactive API documentation:
 - **Swagger UI:** http://localhost:8000/docs
