@@ -246,6 +246,7 @@ The platform provides rich visualizations and analytics. Sample outputs are avai
   ![Daily Posts](frontend/outputs/Daily%20Posts%20Chan%20By%20boards%20and%20date.png)
 
 - **Posts by Country:** Geographic distribution of 4chan posts
+
   ![Posts by Country](frontend/outputs/Posts%20by%20Country%20Chan.png)
 
 ### Reddit Analytics
