@@ -88,7 +88,7 @@ pnpm dev --port 8080
 ```
 Frontend will run on: `http://localhost:8080`
 
-## �️ Frontend Pages
+## Frontend Pages
 
 Access the following dashboards once the frontend is running:
 
