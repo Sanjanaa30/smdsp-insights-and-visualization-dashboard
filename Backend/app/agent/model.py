@@ -1,11 +1,15 @@
 from langchain_openai import ChatOpenAI
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+llm_api_key = os.getenv("OPENAI_API_KEY")
+llm_model = os.getenv("LLM_MODEL", "gpt-4.1-mini")
 
 llm = ChatOpenAI(
-    model="gpt-4.1-mini",
-    api_key="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",
+    model=llm_model,
+    api_key=llm_api_key,
     temperature=0,
 )

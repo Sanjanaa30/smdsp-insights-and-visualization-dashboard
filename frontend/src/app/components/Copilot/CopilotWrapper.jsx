@@ -27,7 +27,7 @@ const CopilotWrapper = ({ children }) => {
   return (
     <CopilotKit
       runtimeUrl={process.env.NEXT_PUBLIC_COPILOT_RUNTIME_URL}
-      showDevConsole={true}
+      showDevConsole={false}
       agent="sql_agent"
     >
       <ChatWrapper />
