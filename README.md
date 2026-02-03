@@ -4,6 +4,15 @@
 
 A comprehensive analytics platform for comparing and analyzing social media engagement patterns across 4chan and Reddit, featuring AI-powered insights using LangChain and CopilotKit.
 
+## 🛠️ System Architecture
+
+This dashboard is the final stage of a three-part data intelligence pipeline:
+1. Data Collection System: [https://github.com/Sanjanaa30/smdsp-data-collection-system]
+- Automates the ingestion of raw SMDSP data.
+2. Data Extraction & Analysis: [https://github.com/Sanjanaa30/smdsp-data-extraction-and-analysis-implementation]
+- Processes raw data into actionable metrics.
+3. Visualization Dashboard (This Repo): Renders real-time insights for stakeholders.
+
 ## 🚀 Tech Stack
 
 ### Backend
